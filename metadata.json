@@ -1,0 +1,6 @@
+{
+  "name": "الوسام",
+  "description": "تطبيق إدارة وتعليم إلكتروني شامل للطلاب والمدرسين وأولياء الأمور",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
