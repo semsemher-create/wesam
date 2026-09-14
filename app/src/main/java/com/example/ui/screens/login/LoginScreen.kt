@@ -20,7 +20,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -44,7 +43,7 @@ fun LoginScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
             }
             Spacer(Modifier.height(16.dp))
             Text("منصة الوسام التعليمية", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = RoyalNavy)
-            Text("التطبيق الرسمي التجريبي 0.1", fontSize = 13.sp, color = TextSecondary)
+            Text("التطبيق التجريبي 0.1", fontSize = 13.sp, color = TextSecondary)
             Spacer(Modifier.height(22.dp))
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -58,28 +57,19 @@ fun LoginScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                     if (!adminMode) {
                         Text("دخول الطالب / المعلم / ولي الأمر", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                         Spacer(Modifier.height(6.dp))
-                        Text("استخدم الكود المعتمد من المنصة. الطالب متصل مباشرة بقاعدة البيانات.", fontSize = 12.sp, color = TextSecondary)
+                        Text("أدخل الكود الحقيقي المسجل في قاعدة بيانات منصة الوسام. لا توجد أكواد تجريبية وهمية.", fontSize = 12.sp, color = TextSecondary)
                         Spacer(Modifier.height(14.dp))
-                        OutlinedTextField(value = inputCode, onValueChange = { inputCode = it.uppercase() }, modifier = Modifier.fillMaxWidth().testTag("login_code_input"), label = { Text("كود الدخول") }, placeholder = { Text("STU004 / TCH001 / PAR001") }, singleLine = true, leadingIcon = { Icon(Icons.Default.Key, null, tint = RoyalNavy) }, shape = RoundedCornerShape(12.dp))
+                        OutlinedTextField(value = inputCode, onValueChange = { inputCode = it.uppercase() }, modifier = Modifier.fillMaxWidth().testTag("login_code_input"), label = { Text("كود الدخول") }, placeholder = { Text("STU… أو TCH… أو PAR…") }, singleLine = true, leadingIcon = { Icon(Icons.Default.Key, null, tint = RoyalNavy) }, shape = RoundedCornerShape(12.dp))
                         Spacer(Modifier.height(16.dp))
                         Button(onClick = { viewModel.login(inputCode) }, modifier = Modifier.fillMaxWidth().height(50.dp).testTag("login_button"), enabled = !isLoading && inputCode.isNotBlank(), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = RoyalNavy)) {
                             if (isLoading) CircularProgressIndicator(Modifier.size(22.dp), color = Color.White, strokeWidth = 2.dp) else { Icon(Icons.Default.Login, null); Spacer(Modifier.width(8.dp)); Text("دخول إلى المنصة", fontWeight = FontWeight.Bold) }
                         }
-                        Spacer(Modifier.height(18.dp))
-                        Text("أكواد اختبار سريعة", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Spacer(Modifier.height(8.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            QuickCodeChip("طالب", "STU004", Modifier.weight(1f), RoyalNavyLight) { inputCode = it }
-                            QuickCodeChip("طالب", "STU003", Modifier.weight(1f), RoyalNavyLight) { inputCode = it }
-                            QuickCodeChip("معلم", "TCH001", Modifier.weight(1f), EmeraldSuccess) { inputCode = it }
-                            QuickCodeChip("ولي", "PAR001", Modifier.weight(1f), AmberGold) { inputCode = it }
-                        }
                     } else {
                         Text("دخول إدارة منصة الوسام", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                         Spacer(Modifier.height(6.dp))
-                        Text("الإدارة لا تدخل بكود طالب. استخدم بريد المدير وكلمة المرور المسجلة في Supabase Auth.", fontSize = 12.sp, color = TextSecondary)
+                        Text("الإدارة تدخل بالبريد الإلكتروني وكلمة المرور الخاصة بحساب Supabase Auth.", fontSize = 12.sp, color = TextSecondary)
                         Spacer(Modifier.height(14.dp))
-                        OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth().testTag("admin_email_input"), label = { Text("البريد الإلكتروني للإدارة") }, placeholder = { Text("admin@example.com") }, singleLine = true, leadingIcon = { Icon(Icons.Default.Email, null, tint = RoyalNavy) }, shape = RoundedCornerShape(12.dp))
+                        OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth().testTag("admin_email_input"), label = { Text("البريد الإلكتروني للإدارة") }, placeholder = { Text("بريد المدير") }, singleLine = true, leadingIcon = { Icon(Icons.Default.Email, null, tint = RoyalNavy) }, shape = RoundedCornerShape(12.dp))
                         Spacer(Modifier.height(10.dp))
                         OutlinedTextField(value = password, onValueChange = { password = it }, modifier = Modifier.fillMaxWidth().testTag("admin_password_input"), label = { Text("كلمة المرور") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), leadingIcon = { Icon(Icons.Default.Lock, null, tint = RoyalNavy) }, shape = RoundedCornerShape(12.dp))
                         Spacer(Modifier.height(16.dp))
@@ -96,7 +86,7 @@ fun LoginScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(10.dp).clip(CircleShape).background(EmeraldSuccess))
                     Spacer(Modifier.width(8.dp))
-                    Column { Text("اتصال البيانات", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary); Text("Supabase • منصة الوسام • التطبيق التجريبي 0.1", fontSize = 11.sp, color = TextSecondary) }
+                    Column { Text("حالة الاتصال", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary); Text("Supabase • تسجيل الدخول والتحقق من الحسابات يتمان عبر الخادم", fontSize = 11.sp, color = TextSecondary) }
                 }
             }
             Spacer(Modifier.height(28.dp))
@@ -108,12 +98,5 @@ fun LoginScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
 private fun RowScope.LoginModeButton(title: String, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Button(onClick = onClick, modifier = modifier.height(46.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = if (selected) RoyalNavy else Color.White, contentColor = if (selected) Color.White else RoyalNavy)) {
         Icon(icon, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-fun QuickCodeChip(label: String, code: String, modifier: Modifier = Modifier, color: Color = RoyalNavy, onClick: (String) -> Unit) {
-    OutlinedButton(onClick = { onClick(code) }, modifier = modifier.height(42.dp), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = color), contentPadding = PaddingValues(horizontal = 3.dp, vertical = 2.dp)) {
-        Text("$label\n$code", fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
     }
 }
