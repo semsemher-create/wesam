@@ -34,10 +34,16 @@ jobs:
         run: keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug
+        shell: bash
+        run: |
+          set +e
+          gradle --no-daemon :app:assembleDebug --stacktrace --console=plain 2>&1 | tee build.log
+          status=${PIPESTATUS[0]}
+          echo "Gradle build exit code: $status"
+          exit "$status"
 
       - name: Run unit tests
-        run: gradle --no-daemon :app:testDebugUnitTest
+        run: gradle --no-daemon :app:testDebugUnitTest --stacktrace --console=plain
 
       - name: Upload debug APK
         if: always()
@@ -53,4 +59,12 @@ jobs:
         with:
           name: wesam-test-report
           path: app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: warn
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wesam-build-log
+          path: build.log
           if-no-files-found: warn
