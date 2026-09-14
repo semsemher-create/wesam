@@ -41,62 +41,67 @@ class SupabaseService {
     suspend fun queryTable(table: String, queryParams: String = "select=*"): Result<JSONArray> =
         withContext(Dispatchers.IO) {
             try {
-                val url = "${SupabaseConfig.REST_URL}/$table?$queryParams"
-                val request = buildRequest(url, "GET")
-                val response = client.newCall(request).execute()
+                val response = client.newCall(
+                    buildRequest("${SupabaseConfig.REST_URL}/$table?$queryParams")
+                ).execute()
                 val responseBody = response.body?.string() ?: "[]"
-
-                if (response.isSuccessful) {
-                    try {
-                        Result.success(JSONArray(responseBody))
-                    } catch (e: Exception) {
-                        // Maybe single object returned
-                        val arr = JSONArray()
-                        if (responseBody.trim().startsWith("{")) {
-                            arr.put(JSONObject(responseBody))
-                        }
-                        Result.success(arr)
-                    }
-                } else {
+                if (!response.isSuccessful) {
                     Log.w("SupabaseService", "Query $table failed [${response.code}]: $responseBody")
-                    Result.failure(Exception("خطأ في قراءة البيانات من خادم Supabase: كود ${response.code}"))
+                    return@withContext Result.failure(Exception("خطأ في قراءة البيانات من Supabase: ${response.code}"))
+                }
+                try {
+                    Result.success(JSONArray(responseBody))
+                } catch (_: Exception) {
+                    Result.success(JSONArray().apply { if (responseBody.trim().startsWith("{")) put(JSONObject(responseBody)) })
                 }
             } catch (e: Exception) {
                 Log.e("SupabaseService", "Network exception for $table", e)
-                Result.failure(Exception("تعذر الاتصال بالخادم، يرجى التحقق من اتصال الإنترنت والمحاولة ثانية."))
+                Result.failure(Exception("تعذر الاتصال بخادم الوسام."))
             }
         }
 
     suspend fun insertRow(table: String, jsonObject: JSONObject): Result<JSONObject> =
         withContext(Dispatchers.IO) {
             try {
-                val url = "${SupabaseConfig.REST_URL}/$table"
-                val request = buildRequest(url, "POST", jsonObject.toString())
-                val response = client.newCall(request).execute()
+                val response = client.newCall(
+                    buildRequest("${SupabaseConfig.REST_URL}/$table", "POST", jsonObject.toString())
+                ).execute()
                 val responseBody = response.body?.string() ?: "{}"
-
-                if (response.isSuccessful) {
-                    try {
-                        val arr = JSONArray(responseBody)
-                        if (arr.length() > 0) {
-                            Result.success(arr.getJSONObject(0))
-                        } else {
-                            Result.success(jsonObject)
-                        }
-                    } catch (e: Exception) {
-                        try {
-                            Result.success(JSONObject(responseBody))
-                        } catch (ex: Exception) {
-                            Result.success(jsonObject)
-                        }
-                    }
-                } else {
+                if (!response.isSuccessful) {
                     Log.w("SupabaseService", "Insert to $table failed [${response.code}]: $responseBody")
-                    Result.failure(Exception("تعذر حفظ البيانات في Supabase: $responseBody"))
+                    return@withContext Result.failure(Exception("تعذر حفظ البيانات في Supabase."))
+                }
+                try {
+                    val arr = JSONArray(responseBody)
+                    Result.success(if (arr.length() > 0) arr.getJSONObject(0) else jsonObject)
+                } catch (_: Exception) {
+                    Result.success(JSONObject(responseBody.ifBlank { jsonObject.toString() }))
                 }
             } catch (e: Exception) {
                 Log.e("SupabaseService", "Network exception inserting into $table", e)
-                Result.failure(Exception("تعذر تسليم البيانات، يرجى التأكد من اتصال الإنترنت والمحاولة مرة أخرى."))
+                Result.failure(Exception("تعذر حفظ البيانات، تحقق من اتصال الإنترنت."))
+            }
+        }
+
+    suspend fun callRpc(functionName: String, payload: JSONObject): Result<JSONArray> =
+        withContext(Dispatchers.IO) {
+            try {
+                val response = client.newCall(
+                    buildRequest("${SupabaseConfig.REST_URL}/rpc/$functionName", "POST", payload.toString())
+                ).execute()
+                val body = response.body?.string() ?: "[]"
+                if (!response.isSuccessful) {
+                    Log.w("SupabaseService", "RPC $functionName failed [${response.code}]: $body")
+                    return@withContext Result.failure(Exception(body.ifBlank { "فشل تنفيذ العملية على الخادم." }))
+                }
+                try {
+                    Result.success(JSONArray(body))
+                } catch (_: Exception) {
+                    Result.success(JSONArray().apply { if (body.trim().startsWith("{")) put(JSONObject(body)) })
+                }
+            } catch (e: Exception) {
+                Log.e("SupabaseService", "RPC network exception: $functionName", e)
+                Result.failure(Exception("تعذر الاتصال بخادم الوسام."))
             }
         }
 }
