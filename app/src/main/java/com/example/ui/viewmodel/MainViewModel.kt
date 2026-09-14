@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.repository.AdminAuthRepository
 import com.example.data.repository.AppRepository
+import com.example.data.repository.CodeAuthService
 import com.example.engine.*
 import com.example.model.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.launch
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = AppRepository(application.applicationContext)
     private val adminAuth = AdminAuthRepository(application.applicationContext)
+    private val codeAuth = CodeAuthService()
     private val jsEngine = JavaScriptEngine(application.applicationContext)
     private val pyEngine = PythonEngine()
     private val htmlEngine = HtmlCssEngine()
@@ -44,7 +46,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val studentAnswers: StateFlow<Map<String, Int>> = _studentAnswers.asStateFlow()
     private val _submissionMessage = MutableStateFlow<String?>(null)
     val submissionMessage: StateFlow<String?> = _submissionMessage.asStateFlow()
-    private val _selectedChildCode = MutableStateFlow("STU004")
+    private val _selectedChildCode = MutableStateFlow("")
     val selectedChildCode: StateFlow<String> = _selectedChildCode.asStateFlow()
 
     init {
@@ -60,9 +62,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _isLoading.value = true
             _loginError.value = null
-            val result = repository.loginWithCode(code)
+            val result = codeAuth.login(code)
             _isLoading.value = false
-            result.onFailure { _loginError.value = it.message }
+            result.onFailure { _loginError.value = it.message ?: "فشل تسجيل الدخول" }
             result.onSuccess { user ->
                 _currentUser.value = user
                 if (user.role == UserRole.PARENT && user.linkedStudentCodes.isNotEmpty()) _selectedChildCode.value = user.linkedStudentCodes.first()
