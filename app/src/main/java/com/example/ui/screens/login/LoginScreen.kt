@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,7 +32,7 @@ import com.example.ui.viewmodel.MainViewModel
 fun LoginScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
     var adminMode by remember { mutableStateOf(false) }
     var inputCode by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("wesam17385@hotmail.com") }
     var password by remember { mutableStateOf("") }
     val isLoading by viewModel.isLoading.collectAsState()
     val loginError by viewModel.loginError.collectAsState()
@@ -69,7 +71,7 @@ fun LoginScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                         Spacer(Modifier.height(6.dp))
                         Text("الإدارة تدخل بالبريد الإلكتروني وكلمة المرور الخاصة بحساب Supabase Auth.", fontSize = 12.sp, color = TextSecondary)
                         Spacer(Modifier.height(14.dp))
-                        OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth().testTag("admin_email_input"), label = { Text("البريد الإلكتروني للإدارة") }, placeholder = { Text("بريد المدير") }, singleLine = true, leadingIcon = { Icon(Icons.Default.Email, null, tint = RoyalNavy) }, shape = RoundedCornerShape(12.dp))
+                        OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth().testTag("admin_email_input"), label = { Text("البريد الإلكتروني للإدارة") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), singleLine = true, leadingIcon = { Icon(Icons.Default.Email, null, tint = RoyalNavy) }, shape = RoundedCornerShape(12.dp))
                         Spacer(Modifier.height(10.dp))
                         OutlinedTextField(value = password, onValueChange = { password = it }, modifier = Modifier.fillMaxWidth().testTag("admin_password_input"), label = { Text("كلمة المرور") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), leadingIcon = { Icon(Icons.Default.Lock, null, tint = RoyalNavy) }, shape = RoundedCornerShape(12.dp))
                         Spacer(Modifier.height(16.dp))
