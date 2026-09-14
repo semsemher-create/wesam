@@ -48,8 +48,8 @@ fun LoginScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
             Spacer(Modifier.height(22.dp))
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LoginModeButton("دخول المستخدمين", !adminMode, Icons.Default.Key) { adminMode = false }
-                LoginModeButton("إدارة المنصة", adminMode, Icons.Default.Lock) { adminMode = true }
+                LoginModeButton("دخول المستخدمين", !adminMode, Icons.Default.Key, Modifier.weight(1f)) { adminMode = false }
+                LoginModeButton("إدارة المنصة", adminMode, Icons.Default.Lock, Modifier.weight(1f)) { adminMode = true }
             }
             Spacer(Modifier.height(12.dp))
 
@@ -105,8 +105,8 @@ fun LoginScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun LoginModeButton(title: String, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Button(onClick = onClick, modifier = Modifier.weight(1f).height(46.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = if (selected) RoyalNavy else Color.White, contentColor = if (selected) Color.White else RoyalNavy)) {
+private fun RowScope.LoginModeButton(title: String, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Button(onClick = onClick, modifier = modifier.height(46.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = if (selected) RoyalNavy else Color.White, contentColor = if (selected) Color.White else RoyalNavy)) {
         Icon(icon, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
