@@ -40,8 +40,17 @@ jobs:
         run: gradle --no-daemon :app:testDebugUnitTest
 
       - name: Upload debug APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: wesam-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wesam-test-report
+          path: app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: warn
