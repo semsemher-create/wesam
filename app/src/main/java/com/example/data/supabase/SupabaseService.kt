@@ -50,10 +50,14 @@ class SupabaseService {
                     .addHeader("Content-Type", "application/json")
                     .post(body.toString().toRequestBody(jsonMediaType))
                     .build()
+            ).execute()
             val responseBody = response.body?.string() ?: "{}"
             if (!response.isSuccessful) {
-                val message = runCatching { JSONObject(responseBody).optString("msg").ifBlank { JSONObject(responseBody).optString("error_description") } }.getOrNull()
-                return@withContext Result.failure(Exception(message?.ifBlank { "بيانات الإدارة غير صحيحة" } ?: "بيانات الإدارة غير صحيحة"))
+                val message = runCatching {
+                    val errorJson = JSONObject(responseBody)
+                    errorJson.optString("msg").ifBlank { errorJson.optString("error_description") }
+                }.getOrNull().orEmpty()
+                return@withContext Result.failure(Exception(message.ifBlank { "بيانات الإدارة غير صحيحة" }))
             }
             val json = JSONObject(responseBody)
             val token = json.optString("access_token")
