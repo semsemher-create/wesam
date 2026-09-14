@@ -3,6 +3,7 @@ package com.example.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.repository.AdminAuthRepository
 import com.example.data.repository.AppRepository
 import com.example.engine.*
 import com.example.model.*
@@ -13,11 +14,13 @@ import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = AppRepository(application.applicationContext)
+    private val adminAuth = AdminAuthRepository(application.applicationContext)
     private val jsEngine = JavaScriptEngine(application.applicationContext)
     private val pyEngine = PythonEngine()
     private val htmlEngine = HtmlCssEngine()
 
-    val currentUser: StateFlow<SessionUser?> = repository.currentUser
+    private val _currentUser = MutableStateFlow<SessionUser?>(adminAuth.restoreSession() ?: repository.currentUser.value)
+    val currentUser: StateFlow<SessionUser?> = _currentUser.asStateFlow()
     val assignments: StateFlow<List<Assignment>> = repository.assignments
     val submissions: StateFlow<List<AssignmentSubmission>> = repository.submissions
     val codingTasks: StateFlow<List<CodingTask>> = repository.codingTasks
@@ -45,7 +48,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val selectedChildCode: StateFlow<String> = _selectedChildCode.asStateFlow()
 
     init {
-        viewModelScope.launch { repository.refreshRemoteData() }
+        viewModelScope.launch {
+            repository.refreshRemoteData()
+            if (_currentUser.value == null) _currentUser.value = repository.currentUser.value
+        }
     }
 
     fun selectChild(code: String) { _selectedChildCode.value = code }
@@ -57,12 +63,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val result = repository.loginWithCode(code)
             _isLoading.value = false
             result.onFailure { _loginError.value = it.message }
-            result.onSuccess { user -> if (user.role == UserRole.PARENT && user.linkedStudentCodes.isNotEmpty()) _selectedChildCode.value = user.linkedStudentCodes.first() }
+            result.onSuccess { user ->
+                _currentUser.value = user
+                if (user.role == UserRole.PARENT && user.linkedStudentCodes.isNotEmpty()) _selectedChildCode.value = user.linkedStudentCodes.first()
+            }
+        }
+    }
+
+    fun loginAdmin(email: String, password: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _loginError.value = null
+            val result = adminAuth.signIn(email, password)
+            _isLoading.value = false
+            result.onFailure { _loginError.value = it.message ?: "فشل تسجيل دخول الإدارة" }
+            result.onSuccess { _currentUser.value = it }
         }
     }
 
     fun logout() {
-        repository.logout()
+        if (_currentUser.value?.role == UserRole.ADMIN) adminAuth.logout() else repository.logout()
+        _currentUser.value = null
         _activeAssignment.value = null
         _activeCodingTask.value = null
         _executionResult.value = null
@@ -74,7 +95,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun answerQuestion(questionId: String, optionIndex: Int) { _studentAnswers.value = _studentAnswers.value + (questionId to optionIndex) }
 
     fun submitAssignment(assignment: Assignment) {
-        val user = currentUser.value ?: return
+        val user = _currentUser.value ?: return
         viewModelScope.launch {
             _isLoading.value = true
             val result = repository.submitAssignmentAnswers(assignment.id, user, _studentAnswers.value)
@@ -86,7 +107,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openCodingTask(task: CodingTask) {
         _activeCodingTask.value = task
-        val user = currentUser.value
+        val user = _currentUser.value
         val existing = codingSubmissions.value.find { it.taskId == task.id && it.studentCode == user?.code }
         _editorCode.value = existing?.sourceCode ?: task.starterCode
         _executionResult.value = null
@@ -122,7 +143,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun submitCodingTask() {
         val task = _activeCodingTask.value ?: return
-        val user = currentUser.value ?: return
+        val user = _currentUser.value ?: return
         viewModelScope.launch {
             _isExecutingCode.value = true
             val result = when (task.language) {
