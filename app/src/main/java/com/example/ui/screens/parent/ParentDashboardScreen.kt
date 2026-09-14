@@ -32,21 +32,17 @@ fun ParentDashboardScreen(
     val codingSubs by viewModel.codingSubmissions.collectAsState()
     val selectedChildCode by viewModel.selectedChildCode.collectAsState()
 
-    val linkedCodes = currentUser?.linkedStudentCodes ?: listOf("STU004", "STU005")
+    // Never invent children locally. Only children returned by the real parent record are shown.
+    val linkedCodes = currentUser?.linkedStudentCodes.orEmpty()
+    val selectedCode = selectedChildCode.takeIf { it.isNotBlank() && linkedCodes.contains(it) }
+        ?: linkedCodes.firstOrNull().orEmpty()
 
-    val childSubmissions = remember(submissions, selectedChildCode) {
-        submissions.filter { it.studentCode == selectedChildCode }
+    val childSubmissions = remember(submissions, selectedCode) {
+        submissions.filter { it.studentCode == selectedCode }
     }
 
-    val childCodingSubs = remember(codingSubs, selectedChildCode) {
-        codingSubs.filter { it.studentCode == selectedChildCode }
-    }
-
-    val childName = when (selectedChildCode) {
-        "STU004" -> "عمر سامي الزهراني (الصف الأول الثانوي)"
-        "STU005" -> "سارة عبد الله الزهراني (الصف الثالث الإعدادي)"
-        "STU003" -> "أحمد خالد المنصوري"
-        else -> "الطالب ($selectedChildCode)"
+    val childCodingSubs = remember(codingSubs, selectedCode) {
+        codingSubs.filter { it.studentCode == selectedCode }
     }
 
     Scaffold(
@@ -91,7 +87,6 @@ fun ParentDashboardScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Child Selector
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -100,43 +95,56 @@ fun ParentDashboardScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "اختر الابن/الابنة للمتابعة الأكاديمية:",
-                            fontSize = 14.sp,
+                            text = "أبنائي المسجلون في المنصة",
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "يتم عرض الأبناء المرتبطين فعليًا بحساب ولي الأمر من قاعدة بيانات الوسام.",
+                            fontSize = 12.sp,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            linkedCodes.forEach { code ->
-                                val isSelected = code == selectedChildCode
-                                Button(
-                                    onClick = { viewModel.selectChild(code) },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(44.dp)
-                                        .testTag("select_child_$code"),
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (isSelected) AmberGold else Color(0xFFE2E8F0),
-                                        contentColor = if (isSelected) Color.White else TextPrimary
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Face,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = code,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        fontSize = 13.sp
-                                    )
+                        if (linkedCodes.isEmpty()) {
+                            Text(
+                                text = "لا يوجد أبناء مرتبطون بهذا الحساب حتى الآن.",
+                                fontSize = 13.sp,
+                                color = TextMuted
+                            )
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                linkedCodes.forEach { code ->
+                                    val isSelected = code == selectedCode
+                                    Button(
+                                        onClick = { viewModel.selectChild(code) },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(44.dp)
+                                            .testTag("select_child_$code"),
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isSelected) AmberGold else Color(0xFFE2E8F0),
+                                            contentColor = if (isSelected) Color.White else TextPrimary
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Face,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = code,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            fontSize = 13.sp
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -144,7 +152,6 @@ fun ParentDashboardScreen(
                 }
             }
 
-            // Summary Card for Selected Child
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -158,15 +165,13 @@ fun ParentDashboardScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = childName,
-                            fontSize = 16.sp,
+                            text = if (selectedCode.isBlank()) "لم يتم اختيار طالب" else "الطالب: $selectedCode",
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
-
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        val totalSubs = childSubmissions.size + childCodingSubs.size
                         val totalEarned = childSubmissions.sumOf { it.score } + childCodingSubs.sumOf { it.score }
                         val totalMax = childSubmissions.sumOf { it.maxScore } + childCodingSubs.sumOf { it.maxScore }
                         val avgPercent = if (totalMax > 0) (totalEarned / totalMax * 100).toInt() else 0
@@ -183,17 +188,16 @@ fun ParentDashboardScreen(
                 }
             }
 
-            // Submissions List
             item {
                 Text(
-                    text = "سجل الواجبات والدرجات المستحقة",
+                    text = "سجل الواجبات والدرجات",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
             }
 
-            if (childSubmissions.isEmpty() && childCodingSubs.isEmpty()) {
+            if (selectedCode.isBlank() || (childSubmissions.isEmpty() && childCodingSubs.isEmpty())) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -207,7 +211,7 @@ fun ParentDashboardScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "لم يقم الطالب بتسليم واجبات حتى الآن.",
+                                text = if (selectedCode.isBlank()) "لا توجد بيانات طالب مرتبطة بهذا الحساب." else "لم يقم الطالب بتسليم واجبات حتى الآن.",
                                 color = TextSecondary,
                                 fontSize = 13.sp
                             )
@@ -224,9 +228,7 @@ fun ParentDashboardScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -238,25 +240,13 @@ fun ParentDashboardScreen(
                                 color = TextPrimary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "تاريخ التسليم: ${sub.submittedAt}",
-                                fontSize = 11.sp,
-                                color = TextMuted
-                            )
-                            if (sub.feedback != null) {
+                            Text(text = "تاريخ التسليم: ${sub.submittedAt}", fontSize = 11.sp, color = TextMuted)
+                            sub.feedback?.let {
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "ملاحظات المعلم: ${sub.feedback}",
-                                    fontSize = 12.sp,
-                                    color = EmeraldSuccess
-                                )
+                                Text(text = "ملاحظات المعلم: $it", fontSize = 12.sp, color = EmeraldSuccess)
                             }
                         }
-
-                        Surface(
-                            color = EmeraldSuccess.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
+                        Surface(color = EmeraldSuccess.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
                             Text(
                                 text = "${sub.score.toInt()} / ${sub.maxScore.toInt()}",
                                 color = EmeraldSuccess,
@@ -276,9 +266,7 @@ fun ParentDashboardScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -296,11 +284,7 @@ fun ParentDashboardScreen(
                                 color = TextSecondary
                             )
                         }
-
-                        Surface(
-                            color = AmberGold.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
+                        Surface(color = AmberGold.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
                             Text(
                                 text = "${csub.score.toInt()} / ${csub.maxScore.toInt()}",
                                 color = AmberGold,
@@ -320,17 +304,10 @@ fun ParentDashboardScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = AmberGold,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Icon(Icons.Default.Info, contentDescription = null, tint = AmberGold, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "بوابة ولي الأمر مخصصة للمتابعة والاطلاع فقط، ولا يمكن تعديل أو تقديم الإجابات من خلالها.",
