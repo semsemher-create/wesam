@@ -36,14 +36,8 @@ fun LoginScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
     val isLoading by viewModel.isLoading.collectAsState()
     val loginError by viewModel.loginError.collectAsState()
 
-    Box(
-        modifier = modifier.fillMaxSize().background(SlateBackground).padding(horizontal = 24.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
+    Box(modifier = modifier.fillMaxSize().background(SlateBackground).padding(horizontal = 24.dp)) {
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Spacer(Modifier.height(28.dp))
             Box(Modifier.size(96.dp).clip(CircleShape).background(RoyalNavy), contentAlignment = Alignment.Center) {
                 Image(painterResource(R.drawable.ic_alwissam_logo), "شعار منصة الوسام", Modifier.size(78.dp).clip(CircleShape))
@@ -55,7 +49,7 @@ fun LoginScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LoginModeButton("دخول المستخدمين", !adminMode, Icons.Default.Key) { adminMode = false }
-                LoginModeButton("إدارة المنصة", adminMode, Icons.Default.AdminPanelSettings) { adminMode = true }
+                LoginModeButton("إدارة المنصة", adminMode, Icons.Default.Lock) { adminMode = true }
             }
             Spacer(Modifier.height(12.dp))
 
@@ -66,26 +60,10 @@ fun LoginScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                         Spacer(Modifier.height(6.dp))
                         Text("استخدم الكود المعتمد من المنصة. الطالب متصل مباشرة بقاعدة البيانات.", fontSize = 12.sp, color = TextSecondary)
                         Spacer(Modifier.height(14.dp))
-                        OutlinedTextField(
-                            value = inputCode,
-                            onValueChange = { inputCode = it.uppercase() },
-                            modifier = Modifier.fillMaxWidth().testTag("login_code_input"),
-                            label = { Text("كود الدخول") },
-                            placeholder = { Text("STU004 / TCH001 / PAR001") },
-                            singleLine = true,
-                            leadingIcon = { Icon(Icons.Default.Key, null, tint = RoyalNavy) },
-                            shape = RoundedCornerShape(12.dp)
-                        )
+                        OutlinedTextField(value = inputCode, onValueChange = { inputCode = it.uppercase() }, modifier = Modifier.fillMaxWidth().testTag("login_code_input"), label = { Text("كود الدخول") }, placeholder = { Text("STU004 / TCH001 / PAR001") }, singleLine = true, leadingIcon = { Icon(Icons.Default.Key, null, tint = RoyalNavy) }, shape = RoundedCornerShape(12.dp))
                         Spacer(Modifier.height(16.dp))
-                        Button(
-                            onClick = { viewModel.login(inputCode) },
-                            modifier = Modifier.fillMaxWidth().height(50.dp).testTag("login_button"),
-                            enabled = !isLoading && inputCode.isNotBlank(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = RoyalNavy)
-                        ) {
-                            if (isLoading) CircularProgressIndicator(Modifier.size(22.dp), color = Color.White, strokeWidth = 2.dp)
-                            else { Icon(Icons.Default.Login, null); Spacer(Modifier.width(8.dp)); Text("دخول إلى المنصة", fontWeight = FontWeight.Bold) }
+                        Button(onClick = { viewModel.login(inputCode) }, modifier = Modifier.fillMaxWidth().height(50.dp).testTag("login_button"), enabled = !isLoading && inputCode.isNotBlank(), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = RoyalNavy)) {
+                            if (isLoading) CircularProgressIndicator(Modifier.size(22.dp), color = Color.White, strokeWidth = 2.dp) else { Icon(Icons.Default.Login, null); Spacer(Modifier.width(8.dp)); Text("دخول إلى المنصة", fontWeight = FontWeight.Bold) }
                         }
                         Spacer(Modifier.height(18.dp))
                         Text("أكواد اختبار سريعة", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
@@ -101,46 +79,15 @@ fun LoginScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                         Spacer(Modifier.height(6.dp))
                         Text("الإدارة لا تدخل بكود طالب. استخدم بريد المدير وكلمة المرور المسجلة في Supabase Auth.", fontSize = 12.sp, color = TextSecondary)
                         Spacer(Modifier.height(14.dp))
-                        OutlinedTextField(
-                            value = email,
-                            onValueChange = { email = it },
-                            modifier = Modifier.fillMaxWidth().testTag("admin_email_input"),
-                            label = { Text("البريد الإلكتروني للإدارة") },
-                            placeholder = { Text("admin@example.com") },
-                            singleLine = true,
-                            leadingIcon = { Icon(Icons.Default.Email, null, tint = RoyalNavy) },
-                            shape = RoundedCornerShape(12.dp)
-                        )
+                        OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth().testTag("admin_email_input"), label = { Text("البريد الإلكتروني للإدارة") }, placeholder = { Text("admin@example.com") }, singleLine = true, leadingIcon = { Icon(Icons.Default.Email, null, tint = RoyalNavy) }, shape = RoundedCornerShape(12.dp))
                         Spacer(Modifier.height(10.dp))
-                        OutlinedTextField(
-                            value = password,
-                            onValueChange = { password = it },
-                            modifier = Modifier.fillMaxWidth().testTag("admin_password_input"),
-                            label = { Text("كلمة المرور") },
-                            singleLine = true,
-                            visualTransformation = PasswordVisualTransformation(),
-                            leadingIcon = { Icon(Icons.Default.Lock, null, tint = RoyalNavy) },
-                            shape = RoundedCornerShape(12.dp)
-                        )
+                        OutlinedTextField(value = password, onValueChange = { password = it }, modifier = Modifier.fillMaxWidth().testTag("admin_password_input"), label = { Text("كلمة المرور") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), leadingIcon = { Icon(Icons.Default.Lock, null, tint = RoyalNavy) }, shape = RoundedCornerShape(12.dp))
                         Spacer(Modifier.height(16.dp))
-                        Button(
-                            onClick = { viewModel.loginAdmin(email, password) },
-                            modifier = Modifier.fillMaxWidth().height(50.dp).testTag("admin_login_button"),
-                            enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = RoyalNavy)
-                        ) {
-                            if (isLoading) CircularProgressIndicator(Modifier.size(22.dp), color = Color.White, strokeWidth = 2.dp)
-                            else { Icon(Icons.Default.AdminPanelSettings, null); Spacer(Modifier.width(8.dp)); Text("دخول الإدارة", fontWeight = FontWeight.Bold) }
+                        Button(onClick = { viewModel.loginAdmin(email, password) }, modifier = Modifier.fillMaxWidth().height(50.dp).testTag("admin_login_button"), enabled = !isLoading && email.isNotBlank() && password.isNotBlank(), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = RoyalNavy)) {
+                            if (isLoading) CircularProgressIndicator(Modifier.size(22.dp), color = Color.White, strokeWidth = 2.dp) else { Icon(Icons.Default.Lock, null); Spacer(Modifier.width(8.dp)); Text("دخول الإدارة", fontWeight = FontWeight.Bold) }
                         }
                     }
-
-                    AnimatedVisibility(loginError != null) {
-                        Column {
-                            Spacer(Modifier.height(10.dp))
-                            Text(loginError ?: "", color = CrimsonError, fontSize = 13.sp)
-                        }
-                    }
+                    AnimatedVisibility(loginError != null) { Column { Spacer(Modifier.height(10.dp)); Text(loginError ?: "", color = CrimsonError, fontSize = 13.sp) } }
                 }
             }
 
@@ -149,10 +96,7 @@ fun LoginScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(10.dp).clip(CircleShape).background(EmeraldSuccess))
                     Spacer(Modifier.width(8.dp))
-                    Column {
-                        Text("اتصال البيانات", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text("Supabase • منصة الوسام • التطبيق التجريبي 0.1", fontSize = 11.sp, color = TextSecondary)
-                    }
+                    Column { Text("اتصال البيانات", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary); Text("Supabase • منصة الوسام • التطبيق التجريبي 0.1", fontSize = 11.sp, color = TextSecondary) }
                 }
             }
             Spacer(Modifier.height(28.dp))
@@ -162,12 +106,7 @@ fun LoginScreen(viewModel: MainViewModel, modifier: Modifier = Modifier) {
 
 @Composable
 private fun LoginModeButton(title: String, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.weight(1f).height(46.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = if (selected) RoyalNavy else Color.White, contentColor = if (selected) Color.White else RoyalNavy)
-    ) {
+    Button(onClick = onClick, modifier = Modifier.weight(1f).height(46.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = if (selected) RoyalNavy else Color.White, contentColor = if (selected) Color.White else RoyalNavy)) {
         Icon(icon, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
