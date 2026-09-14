@@ -32,8 +32,10 @@ class CodeAuthService {
         if (rows.length() == 0) return Result.failure(Exception("كود الطالب $code غير موجود في قاعدة بيانات الوسام."))
         val row = rows.getJSONObject(0)
         val name = displayName(row, "طالب $code")
-        val id = row.optString("id").ifBlank { return Result.failure(Exception("سجل الطالب $code لا يحتوي على رقم تعريف صالح.")) }
-        return Result.success(SessionUser(id, code, name, UserRole.STUDENT))
+        val id = row.optString("id").ifBlank { row.optString("user_id") }
+        if (id.isBlank()) return Result.failure(Exception("سجل الطالب $code لا يحتوي على رقم تعريف صالح."))
+        val className = row.optString("class_name").ifBlank { row.optString("grade").ifBlank { row.optString("grade_name") } }
+        return Result.success(SessionUser(id, code, name, UserRole.STUDENT, className = className.ifBlank { null }, email = row.optString("email").ifBlank { null }))
     }
 
     private suspend fun loginTeacher(code: String): Result<SessionUser> {
@@ -69,13 +71,46 @@ class CodeAuthService {
     }
 
     private fun linkedChildren(row: JSONObject): List<String> {
-        val keys = listOf("linked_student_codes", "student_codes", "children_codes", "linked_children")
+        val keys = listOf(
+            "linked_student_codes", "student_codes", "children_codes", "linked_children",
+            "child_codes", "children", "students"
+        )
         for (key in keys) {
             val raw = row.opt(key) ?: continue
-            if (raw is JSONArray) return List(raw.length()) { i -> raw.optString(i).uppercase() }.filter { it.startsWith("STU") }
-            if (raw is String) return raw.split(',', ';', '|').map { it.trim().uppercase() }.filter { it.startsWith("STU") }
+            val result = extractStudentCodes(raw)
+            if (result.isNotEmpty()) return result
         }
-        val one = row.optString("student_code").trim().uppercase()
-        return if (one.startsWith("STU")) listOf(one) else emptyList()
+
+        val one = listOf("student_code", "child_code", "linked_student_code")
+            .asSequence()
+            .map { row.optString(it).trim().uppercase() }
+            .firstOrNull { it.startsWith("STU") }
+        return one?.let { listOf(it) } ?: emptyList()
+    }
+
+    private fun extractStudentCodes(raw: Any): List<String> {
+        return when (raw) {
+            is JSONArray -> {
+                buildList {
+                    for (i in 0 until raw.length()) {
+                        val item = raw.opt(i)
+                        when (item) {
+                            is JSONObject -> {
+                                val code = listOf("student_code", "code", "child_code")
+                                    .asSequence().map { item.optString(it).trim().uppercase() }
+                                    .firstOrNull { it.startsWith("STU") }
+                                if (code != null) add(code)
+                            }
+                            else -> {
+                                val code = item?.toString()?.trim()?.uppercase().orEmpty()
+                                if (code.startsWith("STU")) add(code)
+                            }
+                        }
+                    }
+                }.distinct()
+            }
+            is String -> raw.split(',', ';', '|').map { it.trim().uppercase() }.filter { it.startsWith("STU") }.distinct()
+            else -> emptyList()
+        }
     }
 }
