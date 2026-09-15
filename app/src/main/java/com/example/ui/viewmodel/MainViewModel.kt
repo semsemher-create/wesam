@@ -52,7 +52,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             repository.refreshRemoteData()
+            val restored = _currentUser.value
+            if (restored != null && restored.role != UserRole.ADMIN) repository.refreshForUser(restored)
             if (_currentUser.value == null) _currentUser.value = repository.currentUser.value
+            if (_currentUser.value?.role == UserRole.PARENT) {
+                _selectedChildCode.value = _currentUser.value?.linkedStudentCodes?.firstOrNull().orEmpty()
+            }
         }
     }
 
@@ -63,12 +68,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isLoading.value = true
             _loginError.value = null
             val result = codeAuth.login(code)
-            _isLoading.value = false
-            result.onFailure { _loginError.value = it.message ?: "فشل تسجيل الدخول" }
-            result.onSuccess { user ->
-                _currentUser.value = user
-                if (user.role == UserRole.PARENT && user.linkedStudentCodes.isNotEmpty()) _selectedChildCode.value = user.linkedStudentCodes.first()
+            if (result.isFailure) {
+                _isLoading.value = false
+                _loginError.value = result.exceptionOrNull()?.message ?: "فشل تسجيل الدخول"
+                return@launch
             }
+            val user = result.getOrThrow()
+            _currentUser.value = user
+            if (user.role == UserRole.PARENT) _selectedChildCode.value = user.linkedStudentCodes.firstOrNull().orEmpty()
+            repository.refreshForUser(user)
+            _isLoading.value = false
         }
     }
 
@@ -90,6 +99,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _activeCodingTask.value = null
         _executionResult.value = null
         _studentAnswers.value = emptyMap()
+        _selectedChildCode.value = ""
     }
 
     fun openAssignment(assignment: Assignment) { _activeAssignment.value = assignment; _studentAnswers.value = emptyMap(); _submissionMessage.value = null }
