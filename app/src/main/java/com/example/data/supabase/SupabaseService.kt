@@ -21,6 +21,13 @@ class SupabaseService {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
     @Volatile private var accessToken: String? = null
 
+    companion object {
+        @Volatile private var userCode: String? = null
+        fun setUserCode(code: String?) { userCode = code?.trim()?.uppercase()?.ifBlank { null } }
+        fun clearUserCode() { userCode = null }
+        fun currentUserCode(): String? = userCode
+    }
+
     fun setAccessToken(token: String?) { accessToken = token }
 
     private fun buildRequest(url: String, method: String = "GET", body: String? = null): Request {
@@ -31,6 +38,7 @@ class SupabaseService {
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Content-Type", "application/json")
             .addHeader("Prefer", "return=representation")
+        userCode?.let { builder.addHeader("x-wesam-code", it) }
         when (method) {
             "POST" -> builder.post((body ?: "{}").toRequestBody(jsonMediaType))
             "PATCH" -> builder.patch((body ?: "{}").toRequestBody(jsonMediaType))
@@ -63,6 +71,7 @@ class SupabaseService {
             val token = json.optString("access_token")
             if (token.isBlank()) return@withContext Result.failure(Exception("لم يتم استلام جلسة دخول صالحة من Supabase"))
             accessToken = token
+            clearUserCode()
             Result.success(json)
         } catch (e: Exception) {
             Log.e("SupabaseService", "Admin authentication failed", e)
@@ -70,7 +79,7 @@ class SupabaseService {
         }
     }
 
-    fun clearSession() { accessToken = null }
+    fun clearSession() { accessToken = null; clearUserCode() }
 
     suspend fun queryTable(table: String, queryParams: String = "select=*"): Result<JSONArray> = withContext(Dispatchers.IO) {
         try {
