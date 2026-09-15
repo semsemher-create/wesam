@@ -55,51 +55,17 @@ class AppRepository(private val context: Context) {
     fun logout() {
         prefs.edit().clear().apply()
         _currentUser.value = null
+        _submissions.value = emptyList()
+        _codingSubmissions.value = emptyList()
     }
 
-    suspend fun loginWithCode(raw: String): Result<SessionUser> = withContext(Dispatchers.IO) {
-        val code = raw.trim().uppercase()
-        if (code.isBlank()) return@withContext Result.failure(Exception("يرجى إدخال كود المستخدم"))
-        if (code == "ADMIN" || code.startsWith("ADM")) {
-            val user = SessionUser("admin-1", "ADMIN01", "الأستاذ المشرف (إدارة المنصة)", UserRole.ADMIN, email = "admin@alwissam.edu")
-            saveSession(user)
-            return@withContext Result.success(user)
+    suspend fun refreshForUser(user: SessionUser) = withContext(Dispatchers.IO) {
+        refreshRemoteData()
+        when (user.role) {
+            UserRole.STUDENT -> refreshStudentSubmissions(listOf(user))
+            UserRole.PARENT -> refreshParentSubmissions(user.linkedStudentCodes)
+            else -> Unit
         }
-        if (code.startsWith("STU")) {
-            val rows = supabase.queryTable("students", "select=*&student_code=eq.$code&limit=1").getOrNull() ?: JSONArray()
-            if (rows.length() == 0) return@withContext Result.failure(Exception("كود الطالب غير موجود في قاعدة بيانات الوسام"))
-            val row = rows.getJSONObject(0)
-            val name = listOf(row.optString("first_name"), row.optString("last_name")).filter { it.isNotBlank() }.joinToString(" ").ifBlank { "طالب $code" }
-            val user = SessionUser(row.optString("id"), code, name, UserRole.STUDENT)
-            saveSession(user)
-            return@withContext Result.success(user)
-        }
-        if (code.startsWith("TCH")) {
-            val name = when (code) {
-                "TCH001" -> "د. عادل عبد الرحمن (حاسب وبرمجة)"
-                "TCH002" -> "أ. طارق عبد العزيز (علوم ورياضيات)"
-                else -> "الأستاذ المعلم ($code)"
-            }
-            val user = SessionUser("teacher-$code", code, name, UserRole.TEACHER, className = "قسم البرمجيات والتقنية")
-            saveSession(user)
-            return@withContext Result.success(user)
-        }
-        if (code.startsWith("PAR")) {
-            val linked = when (code) {
-                "PAR001" -> listOf("STU004", "STU005")
-                "PAR002" -> listOf("STU003")
-                else -> listOf("STU004")
-            }
-            val name = when (code) {
-                "PAR001" -> "سامي عبد الله الزهراني"
-                "PAR002" -> "خالد المنصوري"
-                else -> "ولي الأمر ($code)"
-            }
-            val user = SessionUser("parent-$code", code, name, UserRole.PARENT, linkedStudentCodes = linked)
-            saveSession(user)
-            return@withContext Result.success(user)
-        }
-        Result.failure(Exception("الكود المدخل غير معروف"))
     }
 
     suspend fun refreshRemoteData() = withContext(Dispatchers.IO) {
@@ -131,7 +97,7 @@ class AppRepository(private val context: Context) {
                 val opts = q.optJSONArray("options") ?: JSONArray()
                 qs += Question(q.optString("id"), q.optString("prompt"), if (q.optString("question_type") == "true_false") QuestionType.TRUE_FALSE else QuestionType.MCQ, List(opts.length()) { k -> opts.optString(k) }, q.optInt("correct_index", -1), q.optInt("points", 1))
             }
-            loaded += Assignment(id, r.optString("title"), r.optString("description", ""), r.optString("class_id").ifBlank { null }, classNames[r.optString("class_id")], r.optString("subject_id").ifBlank { null }, subjectNames[r.optString("subject_id")], teacherNames[r.optString("teacher_user_id")], r.optString("due_at").ifBlank { null }, r.optDouble("max_score", 10.0).toInt(), qs)
+            loaded += Assignment(id, r.optString("title"), r.optString("description", ""), r.optString("class_id").ifBlank { null }, classNames[r.optString("class_id")], r.optString("subject_id").ifBlank { null }, subjectNames[r.optString("subject_id")], teacherNames[r.optString("teacher_user_id")], r.optString("due_at").ifBlank { null }, r.optDouble("max_score", 10.0).toInt(), qs, r.optBoolean("is_coding", false), r.optString("coding_task_id").ifBlank { null })
         }
         if (loaded.isNotEmpty()) _assignments.value = loaded
     }
@@ -139,7 +105,6 @@ class AppRepository(private val context: Context) {
     private suspend fun refreshCodingTasks() {
         val rows = supabase.queryTable("coding_tasks", "select=*&is_active=eq.true&order=created_at.asc").getOrNull() ?: return
         if (rows.length() == 0) return
-        // Only visible test cases are sent to the APK. Hidden tests stay on Supabase.
         val tests = supabase.queryTable("coding_test_cases", "select=id,task_id,input,expected_output,is_hidden,points,sort_order&is_hidden=eq.false&order=sort_order.asc").getOrNull() ?: JSONArray()
         val loaded = mutableListOf<CodingTask>()
         for (i in 0 until rows.length()) {
@@ -154,9 +119,68 @@ class AppRepository(private val context: Context) {
                 val t = tests.getJSONObject(j)
                 if (t.optString("task_id") == r.optString("id")) taskTests += TestCase(t.optString("id"), t.optString("input", ""), t.optString("expected_output"), false, t.optInt("points", 1))
             }
-            loaded += CodingTask(r.optString("id"), r.optString("title"), r.optString("description", ""), lang, r.optString("starter_code", ""), r.optString("expected_output", ""), r.optDouble("max_score", 10.0).toInt(), taskTests)
+            loaded += CodingTask(r.optString("id"), r.optString("title"), r.optString("description", ""), lang, r.optString("starter_code", ""), r.optString("expected_output", ""), r.optDouble("max_score", 10.0).toInt(), taskTests, r.optString("assignment_id").ifBlank { null })
         }
         if (loaded.isNotEmpty()) _codingTasks.value = loaded
+    }
+
+    private suspend fun refreshStudentSubmissions(users: List<SessionUser>) {
+        val assignmentRows = mutableListOf<JSONObject>()
+        val codingRows = mutableListOf<JSONObject>()
+        users.forEach { user ->
+            val byId = supabase.queryTable("assignment_submissions", "select=*&student_id=eq.${user.id}&order=submitted_at.desc").getOrNull()
+            byId?.let { for (i in 0 until it.length()) assignmentRows += it.getJSONObject(i) }
+            val byCode = supabase.queryTable("assignment_submissions", "select=*&student_code=eq.${user.code}&order=submitted_at.desc").getOrNull()
+            byCode?.let { for (i in 0 until it.length()) assignmentRows += it.getJSONObject(i) }
+            val cById = supabase.queryTable("coding_submissions", "select=*&student_id=eq.${user.id}&order=submitted_at.desc").getOrNull()
+            cById?.let { for (i in 0 until it.length()) codingRows += it.getJSONObject(i) }
+            val cByCode = supabase.queryTable("coding_submissions", "select=*&student_code=eq.${user.code}&order=submitted_at.desc").getOrNull()
+            cByCode?.let { for (i in 0 until it.length()) codingRows += it.getJSONObject(i) }
+        }
+        applyRemoteSubmissions(assignmentRows.distinctBy { it.optString("id") })
+        applyRemoteCodingSubmissions(codingRows.distinctBy { it.optString("id") })
+    }
+
+    private suspend fun refreshParentSubmissions(childCodes: List<String>) {
+        if (childCodes.isEmpty()) {
+            _submissions.value = emptyList()
+            _codingSubmissions.value = emptyList()
+            return
+        }
+        val users = mutableListOf<SessionUser>()
+        childCodes.distinct().forEach { code ->
+            val rows = supabase.queryTable("students", "select=*&student_code=eq.$code&limit=1").getOrNull() ?: return@forEach
+            if (rows.length() > 0) {
+                val r = rows.getJSONObject(0)
+                users += SessionUser(r.optString("id").ifBlank { r.optString("user_id") }, code, displayName(r, "طالب $code"), UserRole.STUDENT)
+            }
+        }
+        refreshStudentSubmissions(users)
+    }
+
+    private fun applyRemoteSubmissions(rows: List<JSONObject>) {
+        if (rows.isEmpty()) return
+        val loaded = rows.mapNotNull { r ->
+            val id = r.optString("id").ifBlank { return@mapNotNull null }
+            val assignmentId = r.optString("assignment_id")
+            val studentId = r.optString("student_id")
+            val code = r.optString("student_code")
+            AssignmentSubmission(id, assignmentId, studentId, code, r.optString("student_name", "طالب"), r.optDouble("score", 0.0), r.optDouble("max_score", 0.0), r.optString("feedback").ifBlank { null }, r.optString("submitted_at", r.optString("created_at", now())), emptyMap(), r.optString("status", "graded"))
+        }
+        _submissions.value = (_submissions.value.filterNot { old -> loaded.any { it.id == old.id } } + loaded).distinctBy { it.id }
+        saveSubmissions()
+    }
+
+    private fun applyRemoteCodingSubmissions(rows: List<JSONObject>) {
+        if (rows.isEmpty()) return
+        val loaded = rows.mapNotNull { r ->
+            val id = r.optString("id").ifBlank { return@mapNotNull null }
+            val taskId = r.optString("task_id")
+            val task = _codingTasks.value.find { it.id == taskId }
+            CodingSubmission(id, taskId, task?.title ?: r.optString("task_title", "مختبر برمجة"), r.optString("student_id"), r.optString("student_code"), r.optString("source_code"), r.optString("language"), r.optDouble("score", 0.0), r.optDouble("max_score", task?.maxScore?.toDouble() ?: 10.0), r.optInt("passed_tests", 0), r.optInt("total_tests", 0), r.optString("test_output", r.optString("output", "")), r.optString("submitted_at", r.optString("created_at", now())), r.optString("status", "Submitted"))
+        }
+        _codingSubmissions.value = (_codingSubmissions.value.filterNot { old -> loaded.any { it.id == old.id } } + loaded).distinctBy { it.id }
+        saveCodingSubmissions()
     }
 
     suspend fun submitAssignmentAnswers(assignmentId: String, studentUser: SessionUser, answers: Map<String, Int>): Result<AssignmentSubmission> = withContext(Dispatchers.IO) {
@@ -213,6 +237,12 @@ class AppRepository(private val context: Context) {
             CodingTask("code-task-02", "مربع العدد في Python", "احسب مربع 5 واطبع 25.", ProgrammingLanguage.PYTHON, "x = 5\nprint(x * x)", "25", 10, listOf(TestCase("local-py", "", "25", false, 10))),
             CodingTask("code-task-03", "عنوان ترحيبي HTML/CSS", "أنشئ H1 بالنص المطلوب.", ProgrammingLanguage.HTML_CSS, "<h1>مرحباً بك في الوسام</h1>", "مرحباً بك في الوسام", 10, listOf(TestCase("local-html", "", "مرحباً بك في الوسام", false, 10)))
         )
+    }
+
+    private fun displayName(row: JSONObject, fallback: String): String {
+        val direct = listOf("full_name", "name", "display_name").asSequence().map { row.optString(it).trim() }.firstOrNull { it.isNotBlank() }
+        if (!direct.isNullOrBlank()) return direct
+        return listOf("first_name", "middle_name", "last_name").map { row.optString(it).trim() }.filter { it.isNotBlank() }.joinToString(" ").ifBlank { fallback }
     }
 
     private fun now(): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
