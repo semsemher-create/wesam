@@ -1,73 +1,77 @@
 package com.example
 
+import android.annotation.SuppressLint
+import android.graphics.Bitmap
 import android.os.Bundle
+import android.view.View
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
-import com.example.model.UserRole
-import com.example.ui.screens.admin.AdminDashboardScreen
-import com.example.ui.screens.coding.CodingLabScreen
-import com.example.ui.screens.login.LoginScreen
-import com.example.ui.screens.parent.ParentDashboardScreen
-import com.example.ui.screens.student.AssignmentSolverScreen
-import com.example.ui.screens.student.StudentDashboardScreen
-import com.example.ui.screens.teacher.TeacherDashboardScreen
-import com.example.ui.theme.AlWissamTheme
-import com.example.ui.viewmodel.MainViewModel
+import androidx.activity.OnBackPressedCallback
 
+/**
+ * Al-Wissam Android shell.
+ * The APK intentionally wraps the live, connected educational platform so the
+ * mobile app always uses the same current database/authentication as the web app.
+ */
 class MainActivity : ComponentActivity() {
+    private lateinit var webView: WebView
 
-    private val mainViewModel: MainViewModel by viewModels()
-
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            AlWissamTheme {
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    Surface(modifier = Modifier.fillMaxSize()) {
-                        AlWissamApp(viewModel = mainViewModel)
-                    }
+
+        webView = WebView(this).apply {
+            setBackgroundColor(0xFFF8FAF8.toInt())
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.databaseEnabled = true
+            settings.allowFileAccess = false
+            settings.allowContentAccess = false
+            settings.loadsImagesAutomatically = true
+            settings.mediaPlaybackRequiresUserGesture = true
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                    return false
+                }
+
+                override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                    view.visibility = View.VISIBLE
                 }
             }
+            webChromeClient = WebChromeClient()
         }
-    }
-}
 
-@Composable
-fun AlWissamApp(viewModel: MainViewModel) {
-    val currentUser by viewModel.currentUser.collectAsState()
-    val activeAssignment by viewModel.activeAssignment.collectAsState()
-    val activeCodingTask by viewModel.activeCodingTask.collectAsState()
+        setContentView(webView)
+        if (savedInstanceState == null) {
+            webView.loadUrl(PLATFORM_URL)
+        } else {
+            webView.restoreState(savedInstanceState)
+        }
 
-    when {
-        currentUser == null -> {
-            LoginScreen(viewModel = viewModel)
-        }
-        activeCodingTask != null -> {
-            CodingLabScreen(task = activeCodingTask!!, viewModel = viewModel)
-        }
-        activeAssignment != null -> {
-            AssignmentSolverScreen(assignment = activeAssignment!!, viewModel = viewModel)
-        }
-        else -> {
-            when (currentUser?.role) {
-                UserRole.STUDENT -> StudentDashboardScreen(viewModel = viewModel)
-                UserRole.TEACHER -> TeacherDashboardScreen(viewModel = viewModel)
-                UserRole.PARENT -> ParentDashboardScreen(viewModel = viewModel)
-                UserRole.ADMIN -> AdminDashboardScreen(viewModel = viewModel)
-                null -> LoginScreen(viewModel = viewModel)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webView.canGoBack()) webView.goBack() else finish()
             }
-        }
+        })
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        webView.saveState(outState)
+        super.onSaveInstanceState(outState)
+    }
+
+    override fun onDestroy() {
+        webView.stopLoading()
+        webView.webChromeClient = null
+        webView.webViewClient = null
+        webView.destroy()
+        super.onDestroy()
+    }
+
+    companion object {
+        private const val PLATFORM_URL = "https://arabic-education-platform.lovable.app"
     }
 }
