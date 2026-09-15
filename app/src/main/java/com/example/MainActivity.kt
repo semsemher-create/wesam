@@ -11,11 +11,7 @@ import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 
-/**
- * Al-Wissam Android shell.
- * The APK intentionally wraps the live, connected educational platform so the
- * mobile app always uses the same current database/authentication as the web app.
- */
+/** Connected Android shell for the live Al-Wissam educational platform. */
 class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
 
@@ -33,10 +29,7 @@ class MainActivity : ComponentActivity() {
             settings.loadsImagesAutomatically = true
             settings.mediaPlaybackRequiresUserGesture = true
             webViewClient = object : WebViewClient() {
-                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                    return false
-                }
-
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = false
                 override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                     view.visibility = View.VISIBLE
                 }
@@ -45,11 +38,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContentView(webView)
-        if (savedInstanceState == null) {
-            webView.loadUrl(PLATFORM_URL)
-        } else {
-            webView.restoreState(savedInstanceState)
-        }
+        if (savedInstanceState == null) webView.loadUrl(PLATFORM_URL) else webView.restoreState(savedInstanceState)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -65,8 +54,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         webView.stopLoading()
-        webView.webChromeClient = null
-        webView.webViewClient = null
         webView.destroy()
         super.onDestroy()
     }
